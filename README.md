@@ -6,11 +6,22 @@ Reusable **HeroSMS official API** skill for Grok Bot and Cursor agents, with ful
 - OpenAPI: `docs/openapi.json` (mirror of https://hero-sms.com/docs/v1/openapi.json)  
 - Agent recipe: [`skill/SKILL.md`](skill/SKILL.md)
 
-## Install
+## Build & install
 
-1. Clone this repository.
-2. In Cursor / Grok Bot, add the skill path to your agent configuration (point at `skill/SKILL.md` on disk).
-3. Install test dependencies (optional): `pip install -r requirements-dev.txt`
+Requires **Rust stable** (see `rust-toolchain.toml`).
+
+```bash
+cargo build --release
+```
+
+Binary: `target/release/herosms`  
+Install locally: `cargo install --path .` (installs `herosms` into `~/.cargo/bin`).
+
+Run without installing:
+
+```bash
+cargo run --release -- list
+```
 
 ## API key
 
@@ -26,20 +37,23 @@ Optional: `HEROSMS_AUTH_STYLE=auto|authorization-apikey|authorization-bearer|x-a
 
 ```bash
 # List all 51 operations (50 outbound + 1 inbound webhook)
-python skill/scripts/herosms.py list
+herosms list
 
-# SMS-Activate balance
-python skill/scripts/herosms.py call getBalance --auth query
+# SMS-Activate balance (needs HEROSMS_API_KEY)
+herosms call getBalance --auth query
+
+# Preview balance request without a key
+herosms call getBalance --auth query --dry-run
 
 # REST: first page of active activations
-python skill/scripts/herosms.py call getActiveActivations --query size=5
+herosms call getActiveActivations --query size=5
 ```
 
-**Warning:** Operations such as `getNumber`, `buyActivationBatch`, email purchase, prolong, and cancel/finish **spend balance or change activations**. Use `--dry-run` first; add `--yes` only after you intend to execute.
+**Warning:** Operations such as `getNumber`, `buyActivationBatch`, email purchase, prolong, and cancel/finish **spend balance or change activations**. Writes default to **dry-run**; pass `--yes` only when you intend to execute.
 
 ```bash
-python skill/scripts/herosms.py call getNumber \
-  --auth query --query service=tg --query country=6 --dry-run
+herosms call getNumber --auth query --query service=tg --query country=6 --dry-run
+herosms call getNumber --auth query --query service=tg --query country=6 --yes
 ```
 
 ## CLI reference
@@ -49,11 +63,13 @@ python skill/scripts/herosms.py call getNumber \
 | `list [--tag TAG]` | All `operationId` values from OpenAPI |
 | `describe <operationId>` | Method, path, parameters, write vs read |
 | `call <operationId> [--path k=v] [--query k=v] [--body-json '{}'] [--dry-run] [--yes]` | Invoke endpoint |
-| `operations-json` | Machine-readable operation list (tests) |
+| `operations-json` | Machine-readable operation list |
+
+Global flag: `--spec docs/openapi.json` (or `HEROSMS_OPENAPI_SPEC`).
 
 ## Coverage
 
-See [`docs/API_COVERAGE.md`](docs/API_COVERAGE.md) — every path+method (+ webhook) from the spec, marked covered via the generic caller.
+See [`docs/API_COVERAGE.md`](docs/API_COVERAGE.md) — every path+method (+ webhook) from the spec.
 
 Regenerate after OpenAPI updates:
 
@@ -64,8 +80,13 @@ python scripts/generate_api_coverage.py
 ## Tests
 
 ```bash
-pytest          # offline: 7 tests; live tests skipped without key
-HEROSMS_API_KEY=... pytest tests/test_live_smoke.py   # balance + list activations only
+cargo test
+```
+
+Offline tests always run. The `live_smoke` integration test calls the real API only when `HEROSMS_API_KEY` is set (balance + activations list; **no purchases**).
+
+```bash
+HEROSMS_API_KEY=... cargo test --test live_smoke
 ```
 
 ## Project layout
@@ -74,8 +95,8 @@ HEROSMS_API_KEY=... pytest tests/test_live_smoke.py   # balance + list activatio
 docs/openapi.json          # official spec copy
 docs/API_COVERAGE.md       # coverage checklist
 skill/SKILL.md             # agent instructions
-skill/scripts/herosms.py     # OpenAPI-driven CLI
-tests/                     # pytest
+src/                       # Rust CLI (herosms)
+tests/                     # cargo integration tests
 ```
 
 ## Known gaps

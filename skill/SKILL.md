@@ -2,9 +2,10 @@
 name: hero-sms-api
 description: >-
   Call the full official HeroSMS API (REST v1 + SMS-Activate-compatible handler)
-  using the OpenAPI-driven CLI in this repo. Use when buying or managing phone/email
-  activations, checking balance, prices, countries, operators, OTP, prolong/reactivate,
-  classifiers, deliverability stats, or documenting SMS-Activate migration and webhooks.
+  using the OpenAPI-driven Rust CLI in this repo. Use when buying or managing
+  phone/email activations, checking balance, prices, countries, operators, OTP,
+  prolong/reactivate, classifiers, deliverability stats, or documenting
+  SMS-Activate migration and webhooks.
 ---
 
 # HeroSMS API skill
@@ -24,15 +25,15 @@ Do **not** use this skill to invent endpoints; only operations in `docs/openapi.
 ## Install (Cursor / Grok Bot)
 
 1. Clone or vendor this repository.
-2. Point the agent at this skill file: `skill/SKILL.md` (full path on disk, or copy into your agent skills directory).
-3. Ensure Python 3.10+ is available.
-
-CLI (all operations):
+2. Point the agent at this skill file: `skill/SKILL.md`.
+3. Build the CLI (Rust stable):
 
 ```bash
-python skill/scripts/herosms.py list
-python skill/scripts/herosms.py describe getBalance
+cargo build --release
+# binary: target/release/herosms
 ```
+
+Optional: add `target/release` to `PATH`, or call via `cargo run --release -- <subcommand>`.
 
 ## Authentication
 
@@ -58,34 +59,34 @@ Override style: `--auth query` or `HEROSMS_AUTH_STYLE=authorization-bearer`.
 
 ## Safe workflow for agents
 
-1. **Discover** — `list` / `describe <operationId>` to see parameters and whether the call is a write.
+1. **Discover** — `herosms list` / `herosms describe <operationId>`.
 2. **Read first** — balance, catalogs, lists (no `--yes` needed).
-3. **Writes** — always run `--dry-run` first; show the operator the preview; run again with `--yes` only after explicit approval.
+3. **Writes** — default is dry-run preview; show the operator; add `--yes` only after explicit approval.
 4. **Money** — `getNumber`, `buyActivationBatch`, email purchase, rent, prolong, etc. spend balance. Do not purchase in CI or unattended smoke tests.
 
 ### Examples (read-only)
 
 ```bash
 # SMS-Activate balance
-python skill/scripts/herosms.py call getBalance --auth query
+herosms call getBalance --auth query
 
 # REST active activations (first page)
-python skill/scripts/herosms.py call getActiveActivations --query size=5
+herosms call getActiveActivations --query size=5
 
 # Countries (SMS-Activate compatible)
-python skill/scripts/herosms.py call getCountries --auth query
+herosms call getCountries --auth query
 ```
 
 ### Examples (writes — dry-run then execute)
 
 ```bash
-# Preview purchase (REST batch) — does not send without --yes
-python skill/scripts/herosms.py call buyActivationBatch \
+# Preview purchase (REST batch)
+herosms call buyActivationBatch \
   --body-json '{"items":[{"service":"tg","country":6}]}' \
   --dry-run
 
 # After operator approval
-python skill/scripts/herosms.py call buyActivationBatch \
+herosms call buyActivationBatch \
   --body-json '{"items":[{"service":"tg","country":6}]}' \
   --yes
 ```
@@ -93,8 +94,8 @@ python skill/scripts/herosms.py call buyActivationBatch \
 Path and query parameters use repeated `key=value` flags:
 
 ```bash
-python skill/scripts/herosms.py call getActivationOtpLast --path activationId=12345
-python skill/scripts/herosms.py call getHistory --auth query --query from=2025-01-01 --query to=2025-12-31
+herosms call getActivationOtpLast --path activationId=12345
+herosms call getHistory --auth query --query from=2025-01-01 --query to=2025-12-31
 ```
 
 ## Servers
@@ -111,8 +112,8 @@ Operation `smsIncoming` is **not** called by this CLI. HeroSMS POSTs JSON to up 
 ## Coverage and tests
 
 - Checklist: `docs/API_COVERAGE.md` (51 operations).
-- Offline: `pytest` (no network).
-- Live smoke (optional): `HEROSMS_API_KEY=... pytest tests/test_live_smoke.py` — balance + list activations only; **no purchases**.
+- Offline: `cargo test` (no network; live test no-ops without `HEROSMS_API_KEY`).
+- Live smoke (optional): `HEROSMS_API_KEY=... cargo test --test live_smoke` — balance + list activations only; **no purchases**.
 
 ## Known gaps
 

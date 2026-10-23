@@ -3,15 +3,11 @@
 
 from __future__ import annotations
 
-import sys
+import json
 from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "skill" / "scripts"))
-
-from herosms import iter_operations, load_spec  # noqa: E402
-
 SPEC = REPO_ROOT / "docs" / "openapi.json"
 OUT = REPO_ROOT / "docs" / "API_COVERAGE.md"
 
@@ -25,16 +21,65 @@ TAG_ORDER = [
     "Webhooks",
 ]
 
+HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
+SA_WRITE_GET_OPS = {
+    "getNumber",
+    "getNumberV2",
+    "getRentNumber",
+    "setStatus",
+    "saCancelActivation",
+    "saFinishActivation",
+}
+
+
+def is_write(method: str, path: str, operation_id: str, inbound: bool) -> bool:
+    if inbound:
+        return False
+    if method in {"post", "put", "patch", "delete"}:
+        return True
+    if path.startswith("?action="):
+        if operation_id in SA_WRITE_GET_OPS:
+            return True
+        action = path.split("=", 1)[1]
+        if action in {"cancelActivation", "finishActivation", "setStatus"}:
+            return True
+    return False
+
+
+def iter_operations(spec: dict):
+    for path, path_item in spec.get("paths", {}).items():
+        for method, op in path_item.items():
+            if method not in HTTP_METHODS:
+                continue
+            yield {
+                "operation_id": op["operationId"],
+                "method": method,
+                "path": path,
+                "tags": op.get("tags") or [],
+                "inbound": False,
+            }
+    for hook_name, hook_item in spec.get("webhooks", {}).items():
+        for method, op in hook_item.items():
+            if method not in HTTP_METHODS:
+                continue
+            yield {
+                "operation_id": op["operationId"],
+                "method": method,
+                "path": f"webhook:{hook_name}",
+                "tags": op.get("tags") or ["Webhooks"],
+                "inbound": True,
+            }
+
 
 def main() -> int:
-    spec = load_spec(SPEC)
+    spec = json.loads(SPEC.read_text(encoding="utf-8"))
     by_tag: dict[str, list] = defaultdict(list)
     for op in iter_operations(spec):
-        tag = op.tags[0] if op.tags else "Untagged"
-        if op.is_inbound_webhook:
+        tag = op["tags"][0] if op["tags"] else "Untagged"
+        if op["inbound"]:
             note = "Documented inbound webhook (configure URLs in HeroSMS account; not callable via CLI)"
         else:
-            note = "Generic CLI `call` via skill/scripts/herosms.py"
+            note = "Generic CLI `call` via `herosms` (Rust binary)"
         by_tag[tag].append((op, note))
 
     lines = [
@@ -52,21 +97,11 @@ def main() -> int:
         if tag not in by_tag:
             continue
         lines.extend(["", f"## {tag}", ""])
-        for op, note in sorted(by_tag[tag], key=lambda x: (x[0].path, x[0].method)):
+        for op, note in sorted(by_tag[tag], key=lambda x: (x[0]["path"], x[0]["method"])):
             total += 1
-            covered = "yes"
-            method = op.method.upper()
-            path = op.path.replace("|", "\\|")
-            lines.append(f"| {covered} | {method} | `{path}` | `{op.operation_id}` | {note} |")
-
-    for tag in sorted(by_tag):
-        if tag in TAG_ORDER:
-            continue
-        lines.extend(["", f"## {tag}", ""])
-        for op, note in sorted(by_tag[tag], key=lambda x: (x[0].path, x[0].method)):
-            total += 1
+            path = op["path"].replace("|", "\\|")
             lines.append(
-                f"| yes | {op.method.upper()} | `{op.path}` | `{op.operation_id}` | {note} |"
+                f"| yes | {op['method'].upper()} | `{path}` | `{op['operation_id']}` | {note} |"
             )
 
     lines.extend(
@@ -75,7 +110,7 @@ def main() -> int:
             "## Summary",
             "",
             f"- **Total operations:** {total}",
-            "- **CLI entrypoint:** `python skill/scripts/herosms.py`",
+            "- **CLI entrypoint:** `cargo build --release` → `target/release/herosms`",
             "- **Known gaps:** None beyond OpenAPI; webhook delivery is account-configured, not an outbound API.",
             "",
         ]
