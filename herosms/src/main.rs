@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
 use herosms::{
     apply_auth, build_url, choose_base_url, execute_request, index_operations, iter_operations,
-    load_spec, parse_path_pairs, parse_query_pairs, redact_request, AuthStyle, Operation,
+    load_spec, parse_path_pairs, parse_query_pairs, redact_request, wait_otp, AuthStyle, Operation,
+    PollMode,
 };
+use std::time::Duration;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs;
@@ -55,6 +57,24 @@ enum Commands {
     },
     /// Emit all operations as JSON (for tooling/tests)
     OperationsJson,
+    /// Poll until OTP/code is received (default receive path; uses API polling, not webhooks)
+    WaitOtp {
+        activation_id: String,
+        /// Poll interval seconds (default 5)
+        #[arg(long, default_value = "5")]
+        interval_secs: u64,
+        /// Give up after this many seconds (default 300)
+        #[arg(long, default_value = "300")]
+        timeout_secs: u64,
+        /// sa-v2 | sa-v1 | rest-last
+        #[arg(long, default_value = "sa-v2")]
+        mode: String,
+        #[arg(long, env = "HEROSMS_AUTH_STYLE", default_value = "auto")]
+        auth: String,
+        /// Print plan only (no API key required)
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn default_spec_path() -> PathBuf {
@@ -307,6 +327,73 @@ fn cmd_call(
     }
 }
 
+fn cmd_wait_otp(
+    spec: &Value,
+    activation_id: &str,
+    interval_secs: u64,
+    timeout_secs: u64,
+    mode: &str,
+    auth: &str,
+    dry_run: bool,
+) -> ExitCode {
+    let poll_mode = match mode {
+        "sa-v2" => PollMode::SaV2,
+        "sa-v1" => PollMode::SaV1,
+        "rest-last" => PollMode::RestLast,
+        other => {
+            eprintln!("Unknown mode {other}; use sa-v2, sa-v1, or rest-last");
+            return ExitCode::from(2);
+        }
+    };
+
+    if dry_run {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &wait_otp::wait_otp_dry_run_json(activation_id, interval_secs, timeout_secs, mode)
+            )
+            .unwrap()
+        );
+        return ExitCode::SUCCESS;
+    }
+
+    let api_key = std::env::var("HEROSMS_API_KEY")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if api_key.is_empty() {
+        eprintln!("HEROSMS_API_KEY is not set. Use --dry-run to show the polling plan.");
+        return ExitCode::from(1);
+    }
+
+    let auth_style = match AuthStyle::parse(auth) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::from(2);
+        }
+    };
+
+    match wait_otp::poll_until_otp(
+        spec,
+        activation_id,
+        &api_key,
+        auth_style,
+        poll_mode,
+        Duration::from_secs(interval_secs),
+        Duration::from_secs(timeout_secs),
+    ) {
+        Ok(success) => {
+            println!("{}", serde_json::to_string_pretty(&success).unwrap());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let spec = match load_spec_from(&cli) {
@@ -340,6 +427,22 @@ fn main() -> ExitCode {
             &auth,
             dry_run,
             yes,
+        ),
+        Commands::WaitOtp {
+            activation_id,
+            interval_secs,
+            timeout_secs,
+            mode,
+            auth,
+            dry_run,
+        } => cmd_wait_otp(
+            &spec,
+            &activation_id,
+            interval_secs,
+            timeout_secs,
+            &mode,
+            &auth,
+            dry_run,
         ),
     }
 }

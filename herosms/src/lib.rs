@@ -1,5 +1,7 @@
 //! OpenAPI-driven HeroSMS API client library.
 
+pub mod wait_otp;
+pub use wait_otp::PollMode;
 pub mod webhook;
 
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};

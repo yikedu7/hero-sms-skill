@@ -47,6 +47,26 @@ fn write_classification() {
 }
 
 #[test]
+fn wait_otp_dry_run_without_api_key() {
+    let bin = env!("CARGO_BIN_EXE_herosms");
+    let spec = spec_path();
+    let out = std::process::Command::new(bin)
+        .args([
+            "--spec",
+            spec.to_str().expect("spec"),
+            "wait-otp",
+            "999",
+            "--dry-run",
+        ])
+        .env_remove("HEROSMS_API_KEY")
+        .output()
+        .expect("wait-otp");
+    assert!(out.status.success());
+    let payload: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(payload["dryRun"], true);
+}
+
+#[test]
 fn dry_run_does_not_require_api_key() {
     let bin = env!("CARGO_BIN_EXE_herosms");
     let spec = spec_path();

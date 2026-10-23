@@ -1,6 +1,8 @@
-//! Sample HTTPS-terminated webhook receiver for HeroSMS `smsIncoming` events.
+//! **Optional reference** webhook receiver for HeroSMS `smsIncoming` (not required for agents).
 //!
-//! Run behind TLS in production (nginx, Caddy, etc.). HeroSMS requires public HTTPS URLs.
+//! Requires **your own public HTTPS URL** registered in the HeroSMS account UI.
+//! Grok Bot / cloud agents do not provide inbound webhooks — use `herosms wait-otp` instead.
+//! Terminate TLS at nginx/Caddy; this process speaks plain HTTP on localhost.
 
 use clap::Parser;
 use herosms::webhook::{
@@ -13,7 +15,10 @@ use std::sync::Arc;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 
 #[derive(Parser)]
-#[command(name = "herosms-webhook", about = "HeroSMS incoming SMS webhook receiver")]
+#[command(
+    name = "herosms-webhook",
+    about = "Optional sample receiver — requires operator-owned public HTTPS (not for Grok Bot)"
+)]
 struct Cli {
     /// Listen address (HTTP). Terminate TLS at your reverse proxy.
     #[arg(long, default_value = "127.0.0.1:8787", env = "HEROSMS_WEBHOOK_LISTEN")]

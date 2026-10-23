@@ -1,104 +1,103 @@
 # HeroSMS API coverage
 
-Checklist generated from `docs/openapi.json` (official HeroSMS OpenAPI 3.2).
+Generated from `docs/openapi.json`. **Outbound client APIs** are invoked via the Rust `herosms` CLI.
+**Receiving OTP** in agent environments defaults to **polling** (`wait-otp`, `getStatusV2`, etc.), not webhooks.
+
+## Outbound client API (50 operations)
 
 | Covered | Method | Path | operationId | Notes |
 | --- | --- | --- | --- | --- |
 
-## Activations
+### Activations
 
-| yes | GET | `/activations` | `getActiveActivations` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/activations` | `buyActivationBatch` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/history` | `82eacb597b010298c78dacd1f0bdd3ff` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/offers/{verificationType}` | `getActivationOffers` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/stats` | `getActivationStats` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | DELETE | `/activations/{activationId}` | `cancelActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/activations/{activationId}/finish` | `finishActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/activations/{activationId}/prolong` | `prolongActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/{activationId}/prolong/history` | `prolongActivationHistory` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/{activationId}/prolong/options` | `prolongOptions` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/activations/{activationId}/reactivate` | `reactivateActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/{activationId}/reactivate/options` | `reactivateOptions` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/activations/{activationId}/replace` | `replaceActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
+| yes | GET | `/activations` | `getActiveActivations` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/activations` | `buyActivationBatch` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/history` | `82eacb597b010298c78dacd1f0bdd3ff` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/offers/{verificationType}` | `getActivationOffers` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/stats` | `getActivationStats` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | DELETE | `/activations/{activationId}` | `cancelActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/activations/{activationId}/finish` | `finishActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/activations/{activationId}/prolong` | `prolongActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/{activationId}/prolong/history` | `prolongActivationHistory` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/{activationId}/prolong/options` | `prolongOptions` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/activations/{activationId}/reactivate` | `reactivateActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/{activationId}/reactivate/options` | `reactivateOptions` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/activations/{activationId}/replace` | `replaceActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
 
-## Activation OTP
+### Activation OTP
 
-| yes | GET | `/activations/{activationId}/otp` | `getActivationOtpList` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/activations/{activationId}/otp/last` | `getActivationOtpLast` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
+| yes | GET | `/activations/{activationId}/otp` | `getActivationOtpList` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/activations/{activationId}/otp/last` | `getActivationOtpLast` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
 
-## Emails
+### Emails
 
-| yes | GET | `/emails` | `7f17119e77aad0c154d2f5e600ef092a` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/emails` | `22164e5067a27560b8fbf28b2ac1f019` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/emails/batch` | `7892a59d83e6e38d154854fe1f1b065f` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/emails/domains` | `59f271906bdbc81b6b2cdd4213b01775` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/emails/offers` | `f8e545c04e941382450fcc88b14c4e89` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | DELETE | `/emails/{emailId}` | `20dae8daa691db1282f0d1d268dbac44` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `/emails/{emailId}` | `c57ebd15edbfa8625b8a60984b76e3c6` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `/emails/{emailId}/reorder` | `bb0d53e0557982f130c1540ed663e831` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
+| yes | GET | `/emails` | `7f17119e77aad0c154d2f5e600ef092a` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/emails` | `22164e5067a27560b8fbf28b2ac1f019` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/emails/batch` | `7892a59d83e6e38d154854fe1f1b065f` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/emails/domains` | `59f271906bdbc81b6b2cdd4213b01775` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/emails/offers` | `f8e545c04e941382450fcc88b14c4e89` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | DELETE | `/emails/{emailId}` | `20dae8daa691db1282f0d1d268dbac44` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `/emails/{emailId}` | `c57ebd15edbfa8625b8a60984b76e3c6` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `/emails/{emailId}/reorder` | `bb0d53e0557982f130c1540ed663e831` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
 
-## SMS-Activate
+### SMS-Activate
 
-| yes | GET | `?action=cancelActivation` | `saCancelActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=finishActivation` | `saFinishActivation` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getActiveActivations` | `saGetActiveActivations` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getAllSms` | `getAllSms` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getBalance` | `getBalance` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getCountries` | `getCountries` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getHistory` | `getHistory` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getNumber` | `getNumber` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getNumberV2` | `getNumberV2` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getOperators` | `getOperators` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getPrices` | `getPrices` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getRentNumber` | `getRentNumber` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getRentServicesAndCountries` | `getRentServicesAndCountries` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getServicesList` | `getServicesList` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getStatus` | `getStatus` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getStatusV2` | `getStatusV2` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getTopCountriesByService` | `getTopCountriesByService` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=getTopCountriesByServiceRank` | `getTopCountriesByServiceRank` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `?action=prolong` | `prolong` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=prolongHistory` | `prolongHistory` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=prolongOptions` | `saProlongOptions` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | POST | `?action=reactivate` | `reactivate` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=reactivateOptions` | `saReactivateOptions` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=serviceCountRent` | `serviceCountRent` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
-| yes | GET | `?action=setStatus` | `setStatus` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
+| yes | GET | `?action=cancelActivation` | `saCancelActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=finishActivation` | `saFinishActivation` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getActiveActivations` | `saGetActiveActivations` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getAllSms` | `getAllSms` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getBalance` | `getBalance` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getCountries` | `getCountries` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getHistory` | `getHistory` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getNumber` | `getNumber` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getNumberV2` | `getNumberV2` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getOperators` | `getOperators` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getPrices` | `getPrices` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getRentNumber` | `getRentNumber` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getRentServicesAndCountries` | `getRentServicesAndCountries` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getServicesList` | `getServicesList` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getStatus` | `getStatus` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getStatusV2` | `getStatusV2` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getTopCountriesByService` | `getTopCountriesByService` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=getTopCountriesByServiceRank` | `getTopCountriesByServiceRank` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `?action=prolong` | `prolong` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=prolongHistory` | `prolongHistory` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=prolongOptions` | `saProlongOptions` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | POST | `?action=reactivate` | `reactivate` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=reactivateOptions` | `saReactivateOptions` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=serviceCountRent` | `serviceCountRent` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
+| yes | GET | `?action=setStatus` | `setStatus` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
 
-## Classifiers
+### Classifiers
 
-| yes | GET | `/classifiers/activations/custom-durations` | `customDurations` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
+| yes | GET | `/classifiers/activations/custom-durations` | `customDurations` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
 
-## Statistics
+### Statistics
 
-| yes | GET | `/stats/deliverability` | `60679e939ef779f9063f3a035599e820` | Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>` |
+| yes | GET | `/stats/deliverability` | `60679e939ef779f9063f3a035599e820` | Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage) |
 
 ## Webhooks
 
-HeroSMS delivers webhooks to **your** HTTPS endpoints. There is **no outbound API** in the spec to register URLs.
+Webhooks are **platform → your HTTPS endpoint**. Grok Bot / typical cloud agents **do not** host inbound HTTPS; mark **receive** as **N/A** there and use polling.
 
-### Platform-side (account configuration)
+### Platform pushes (HeroSMS → URL you configure)
 
-| Covered | Side | operationId | Notes |
-| --- | --- | --- | --- |
-| yes | **Platform** | `webhook-url-registration` | Configure up to **3 HTTPS URLs** in HeroSMS account personal information (see OpenAPI `tags.Webhooks`). Not callable via `herosms` CLI. |
-
-### Inbound events (HeroSMS → your server)
-
-| Covered | Method | Path | operationId | Notes |
+| Covered | Direction | operationId | We receive in bot? | Notes |
 | --- | --- | --- | --- | --- |
-| yes | POST | `webhook:sms-incoming` | `smsIncoming` | Inbound POST JSON per OpenAPI `webhooks.sms-incoming`; see `skill/SKILL.md` (Webhooks) and `herosms-webhook` receiver. |
+| yes | Platform → customer URL | `webhook-url-registration` | N/A | Configure up to **3 HTTPS URLs** in account personal information. No client API. |
+| yes | Platform → customer URL | `smsIncoming` | **N/A** | POST JSON per `webhooks.sms-incoming`; documented in `skill/SKILL.md`. Requires operator-owned public HTTPS. |
 
-### Skill-side (this repository)
+### Skill / operator receive (optional, not a bot dependency)
 
-| Covered | Component | Notes |
-| --- | --- | --- |
-| yes | `herosms::webhook` | Parses/validates `smsIncoming` payload; OTP extraction helper. |
-| yes | `herosms-webhook` binary | Runnable sample HTTP server: `cargo run -p herosms-webhook --release`. TLS via reverse proxy. |
+| Covered | Component | Bot environment | Notes |
+| --- | --- | --- | --- |
+| partial | `herosms wait-otp` | **yes** (polling) | **Default** receive path; uses `getStatusV2` / `getStatus` / REST OTP. |
+| partial | `herosms-webhook` sample | **N/A** | Optional reference server if operator runs TLS + public URL; not required for skill delivery. |
+| partial | `herosms::webhook` parse helpers | **N/A** | For custom receivers / optional forward path only. |
 
 ## Summary
 
-- **Total tracked items:** 52 (50 outbound API operations + 1 platform webhook config + 1 inbound webhook event + skill receiver/libs)
-- **Outbound CLI:** `cargo build -p herosms --release` → `target/release/herosms`
-- **Webhook receiver:** `cargo run -p herosms-webhook --release`
-- **Known gaps:** OpenAPI does not define HMAC/signature headers for webhooks; optional shared-secret header supported in sample receiver only.
+- **Outbound API operations:** 50 / 50 via `herosms call`
+- **OTP receive (agents):** polling (`herosms wait-otp`) — covered
+- **Webhook receive (agents):** N/A — documented only
+- **CLI:** `cargo build -p herosms --release`

@@ -47,8 +47,6 @@ def iter_webhook_operations(spec: dict):
                 "method": method,
                 "path": f"webhook:{hook_name}",
                 "hook_name": hook_name,
-                "tags": op.get("tags") or ["Webhooks"],
-                "summary": op.get("summary", ""),
             }
 
 
@@ -57,82 +55,80 @@ def main() -> int:
     by_tag: dict[str, list] = defaultdict(list)
     for op in iter_path_operations(spec):
         tag = op["tags"][0] if op["tags"] else "Untagged"
-        note = "Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>`"
+        note = "Outbound — `herosms call <operationId>` (receive OTP via `wait-otp` / polling, not required for coverage)"
         by_tag[tag].append((op, note))
 
     lines = [
         "# HeroSMS API coverage",
         "",
-        "Checklist generated from `docs/openapi.json` (official HeroSMS OpenAPI 3.2).",
+        "Generated from `docs/openapi.json`. **Outbound client APIs** are invoked via the Rust `herosms` CLI.",
+        "**Receiving OTP** in agent environments defaults to **polling** (`wait-otp`, `getStatusV2`, etc.), not webhooks.",
+        "",
+        "## Outbound client API (50 operations)",
         "",
         "| Covered | Method | Path | operationId | Notes |",
         "| --- | --- | --- | --- | --- |",
     ]
 
-    total = 0
+    outbound = 0
     for tag in TAG_ORDER:
         if tag == "Webhooks":
             continue
         if tag not in by_tag:
             continue
-        lines.extend(["", f"## {tag}", ""])
+        lines.extend(["", f"### {tag}", ""])
         for op, note in sorted(by_tag[tag], key=lambda x: (x[0]["path"], x[0]["method"])):
-            total += 1
+            outbound += 1
             path = op["path"].replace("|", "\\|")
             lines.append(
                 f"| yes | {op['method'].upper()} | `{path}` | `{op['operation_id']}` | {note} |"
             )
 
-    # Webhooks: platform config + inbound event + skill receiver
     lines.extend(
         [
             "",
             "## Webhooks",
             "",
-            "HeroSMS delivers webhooks to **your** HTTPS endpoints. There is **no outbound API** in the spec to register URLs.",
+            "Webhooks are **platform → your HTTPS endpoint**. Grok Bot / typical cloud agents **do not** host inbound HTTPS; mark **receive** as **N/A** there and use polling.",
             "",
-            "### Platform-side (account configuration)",
+            "### Platform pushes (HeroSMS → URL you configure)",
             "",
-            "| Covered | Side | operationId | Notes |",
-            "| --- | --- | --- | --- |",
-            "| yes | **Platform** | `webhook-url-registration` | Configure up to **3 HTTPS URLs** in HeroSMS account personal information (see OpenAPI `tags.Webhooks`). Not callable via `herosms` CLI. |",
-            "",
-            "### Inbound events (HeroSMS → your server)",
-            "",
-            "| Covered | Method | Path | operationId | Notes |",
+            "| Covered | Direction | operationId | We receive in bot? | Notes |",
             "| --- | --- | --- | --- | --- |",
+            "| yes | Platform → customer URL | `webhook-url-registration` | N/A | Configure up to **3 HTTPS URLs** in account personal information. No client API. |",
         ]
     )
 
     for op in iter_webhook_operations(spec):
-        total += 2  # platform row counted once above + event row
         lines.append(
-            f"| yes | {op['method'].upper()} | `{op['path']}` | `{op['operation_id']}` | "
-            f"Inbound POST JSON per OpenAPI `webhooks.{op['hook_name']}`; see `skill/SKILL.md` (Webhooks) and `herosms-webhook` receiver. |"
+            f"| yes | Platform → customer URL | `{op['operation_id']}` | **N/A** | "
+            f"POST JSON per `webhooks.{op['hook_name']}`; documented in `skill/SKILL.md`. "
+            f"Requires operator-owned public HTTPS. |"
         )
 
     lines.extend(
         [
             "",
-            "### Skill-side (this repository)",
+            "### Skill / operator receive (optional, not a bot dependency)",
             "",
-            "| Covered | Component | Notes |",
-            "| --- | --- | --- |",
-            "| yes | `herosms::webhook` | Parses/validates `smsIncoming` payload; OTP extraction helper. |",
-            "| yes | `herosms-webhook` binary | Runnable sample HTTP server: `cargo run -p herosms-webhook --release`. TLS via reverse proxy. |",
+            "| Covered | Component | Bot environment | Notes |",
+            "| --- | --- | --- | --- |",
+            "| partial | `herosms wait-otp` | **yes** (polling) | **Default** receive path; uses `getStatusV2` / `getStatus` / REST OTP. |",
+            "| partial | `herosms-webhook` sample | **N/A** | Optional reference server if operator runs TLS + public URL; not required for skill delivery. |",
+            "| partial | `herosms::webhook` parse helpers | **N/A** | For custom receivers / optional forward path only. |",
             "",
             "## Summary",
             "",
-            f"- **Total tracked items:** {total} (50 outbound API operations + 1 platform webhook config + 1 inbound webhook event + skill receiver/libs)",
-            "- **Outbound CLI:** `cargo build -p herosms --release` → `target/release/herosms`",
-            "- **Webhook receiver:** `cargo run -p herosms-webhook --release`",
-            "- **Known gaps:** OpenAPI does not define HMAC/signature headers for webhooks; optional shared-secret header supported in sample receiver only.",
+            f"- **Outbound API operations:** {outbound} / 50 via `herosms call`",
+            "- **OTP receive (agents):** polling (`herosms wait-otp`) — covered",
+            "- **Webhook receive (agents):** N/A — documented only",
+            "- **CLI:** `cargo build -p herosms --release`",
             "",
         ]
     )
 
     OUT.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Wrote {OUT}")
+    print(f"Wrote {OUT} ({outbound} outbound ops)")
     return 0
 
 

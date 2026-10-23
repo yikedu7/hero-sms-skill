@@ -1,6 +1,6 @@
 # hero-sms-skill
 
-Reusable **HeroSMS official API** skill for Grok Bot and Cursor agents, with full coverage of the published OpenAPI 3.2 spec (REST + SMS-Activate-compatible handler).
+Reusable **HeroSMS official API** skill for Grok Bot and Cursor agents: **Rust CLI** for all outbound OpenAPI operations; **polling** (`wait-otp`) as the default way to receive OTP. Webhooks are optional and require your own public HTTPS endpoint.
 
 - Docs: https://hero-sms.com/api  
 - OpenAPI: `docs/openapi.json` (mirror of https://hero-sms.com/docs/v1/openapi.json)  
@@ -12,11 +12,12 @@ Requires **Rust stable** (see `rust-toolchain.toml`).
 
 ```bash
 cargo build -p herosms --release
-cargo build -p herosms-webhook --release
 ```
 
-Binaries: `target/release/herosms`, `target/release/herosms-webhook`  
+Binary: `target/release/herosms`  
 Install CLI: `cargo install -p herosms --path herosms`
+
+Optional webhook sample (operator-hosted HTTPS only): `cargo build -p herosms-webhook --release`
 
 Run without installing:
 
@@ -78,16 +79,18 @@ Regenerate after OpenAPI updates:
 python scripts/generate_api_coverage.py
 ```
 
-## Webhook receiver (incoming SMS)
-
-HeroSMS POSTs `smsIncoming` JSON to up to **3 HTTPS URLs** configured in the account UI (no API to register them). Run the sample server locally and terminate TLS with nginx/Caddy in production:
+## Receive OTP (default: polling)
 
 ```bash
-cargo run -p herosms-webhook --release
-# POST http://127.0.0.1:8787/webhook/sms-incoming
+herosms wait-otp <activationId> --auth query --mode sa-v2
+herosms wait-otp <activationId> --dry-run   # no API key
 ```
 
-Details: `skill/SKILL.md` (Webhooks section) and `docs/API_COVERAGE.md`.
+See `skill/SKILL.md` for intervals, timeout, cancel (`setStatus` 8), and finish (`setStatus` 6).
+
+## Webhooks (optional)
+
+Documented in `skill/SKILL.md`. **Not used in Grok Bot** unless the operator exposes public HTTPS. Optional sample: `cargo run -p herosms-webhook --release`.
 
 ## Tests
 

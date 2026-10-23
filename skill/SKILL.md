@@ -2,197 +2,159 @@
 name: hero-sms-api
 description: >-
   Call the full official HeroSMS API (REST v1 + SMS-Activate-compatible handler)
-  using the OpenAPI-driven Rust CLI in this repo. Use when buying or managing
-  phone/email activations, checking balance, prices, countries, operators, OTP,
-  prolong/reactivate, classifiers, deliverability stats, or documenting
-  SMS-Activate migration and webhooks.
+  using the OpenAPI-driven Rust CLI. Default for receiving OTP is API polling
+  (getStatus / wait-otp), not webhooks. Use for balance, buy/manage activations,
+  OTP, cancel/finish, email flows, classifiers, and stats. Webhooks are optional
+  documentation only unless the operator hosts public HTTPS.
 ---
 
 # HeroSMS API skill
 
 Official docs: https://hero-sms.com/api  
-OpenAPI source of truth: `docs/openapi.json` (copy of https://hero-sms.com/docs/v1/openapi.json)
+OpenAPI source of truth: `docs/openapi.json`
 
-## When to use
+## Delivery model (read this first)
 
-- Read-only discovery: balance, countries, services, operators, prices, active activations, OTP lists, email inventory, stats.
-- Purchases and lifecycle: buy number (REST batch or SMS-Activate `getNumber`), status, finish, cancel, prolong, reactivate, replace.
-- Email activations: list, buy, batch, domains, offers, reorder, delete.
-- Integration help: SMS-Activate host swap (`api.sms-activate.ae` → `hero-sms.com`), auth header variants, webhook payload shape.
+| Concern | Default | Notes |
+| --- | --- | --- |
+| **Outbound API** | `herosms` Rust CLI | All **50** client operations via `call` / `wait-otp`. Needs `HEROSMS_API_KEY`. |
+| **Receive OTP / SMS** | **Polling** | Works in Grok Bot, Cursor Cloud Agent, CI, local — no public URL required. |
+| **Webhooks** | **Optional** | HeroSMS pushes to **your** HTTPS URLs. Not provided by Grok Bot. Use only if the operator runs their own endpoint (or optional forward to a bot URL they control). |
 
-Do **not** use this skill to invent endpoints; only operations in `docs/openapi.json`.
+**Environment rule:** If there is no public HTTPS receiver, **use polling only**. Do not fail or block tasks because webhooks are unavailable.
 
-## Install (Cursor / Grok Bot)
-
-1. Clone or vendor this repository.
-2. Point the agent at this skill file: `skill/SKILL.md`.
-3. Build the CLI (Rust stable):
+## Install
 
 ```bash
 cargo build -p herosms --release
-# binary: target/release/herosms
-cargo build -p herosms-webhook --release
-# binary: target/release/herosms-webhook
+# target/release/herosms
 ```
 
-Optional: add `target/release` to `PATH`, or call via `cargo run --release -- <subcommand>`.
+Optional reference sample (not required for agents): `cargo build -p herosms-webhook --release`.
 
 ## Authentication
-
-Set the API key **only** via environment variable (never pass the key on the command line):
 
 ```bash
 export HEROSMS_API_KEY="your_key_here"
 ```
 
-Supported placements (OpenAPI + common doc variants):
-
 | Style | How |
 | --- | --- |
-| `auto` (default) | REST: `Authorization: ApiKey <key>`; SMS-Activate: `?api_key=` query |
-| `authorization-apikey` | `Authorization: ApiKey <key>` |
-| `authorization-bearer` | `Authorization: Bearer <key>` |
-| `x-api-key` | Header `x-api-key: <key>` |
-| `query` | Query `api_key=<key>` |
+| `auto` (default) | REST: `Authorization: ApiKey <key>`; SMS-Activate: `?api_key=` |
+| `authorization-apikey` / `authorization-bearer` / `x-api-key` / `query` | See `--auth` |
 
-Override style: `--auth query` or `HEROSMS_AUTH_STYLE=authorization-bearer`.
+Never print or commit the API key.
 
-**Never** print, log, or commit `HEROSMS_API_KEY`. Dry-run output redacts secrets.
+## Outbound workflow
 
-## Safe workflow for agents
-
-1. **Discover** — `herosms list` / `herosms describe <operationId>`.
-2. **Read first** — balance, catalogs, lists (no `--yes` needed).
-3. **Writes** — default is dry-run preview; show the operator; add `--yes` only after explicit approval.
-4. **Money** — `getNumber`, `buyActivationBatch`, email purchase, rent, prolong, etc. spend balance. Do not purchase in CI or unattended smoke tests.
-
-### Examples (read-only)
+1. `herosms list` / `herosms describe <operationId>`
+2. Read calls without `--yes`
+3. Writes: dry-run by default; `--yes` after operator approval
 
 ```bash
-# SMS-Activate balance
 herosms call getBalance --auth query
-
-# REST active activations (first page)
 herosms call getActiveActivations --query size=5
-
-# Countries (SMS-Activate compatible)
-herosms call getCountries --auth query
 ```
 
-### Examples (writes — dry-run then execute)
+## Receiving codes (default: polling)
+
+After `getNumber` / `buyActivationBatch`, poll until a code appears.
+
+### Recommended: `wait-otp`
 
 ```bash
-# Preview purchase (REST batch)
-herosms call buyActivationBatch \
-  --body-json '{"items":[{"service":"tg","country":6}]}' \
-  --dry-run
-
-# After operator approval
-herosms call buyActivationBatch \
-  --body-json '{"items":[{"service":"tg","country":6}]}' \
-  --yes
+herosms wait-otp <activationId> \
+  --mode sa-v2 \
+  --interval-secs 5 \
+  --timeout-secs 300 \
+  --auth query
 ```
 
-Path and query parameters use repeated `key=value` flags:
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--mode` | `sa-v2` | `getStatusV2` (JSON). Alternatives: `sa-v1` (`getStatus` text), `rest-last` (`getActivationOtpLast`) |
+| `--interval-secs` | `5` | Sleep between polls |
+| `--timeout-secs` | `300` | Stop after 5 minutes |
+
+**Success:** non-empty OTP/code in the status response (e.g. `STATUS_OK:<code>` or V2 `data.code`). CLI prints JSON and exits `0`.
+
+**Still waiting:** `STATUS_WAIT_CODE`, `STATUS_WAIT_RESEND`, or empty REST OTP — keep polling until timeout.
+
+**Cancelled / dead:** `STATUS_CANCEL` — stop; activation ended.
+
+**After timeout:** Inform the operator; optionally cancel to recover balance:
 
 ```bash
-herosms call getActivationOtpLast --path activationId=12345
-herosms call getHistory --auth query --query from=2025-01-01 --query to=2025-12-31
+# OpenAPI setStatus: status 8 = cancel (refund when allowed)
+herosms call setStatus --auth query --query id=<activationId> --query status=8 --yes
 ```
 
-## Servers
+**Finish when done with code (funds not refunded):**
 
-- REST: `https://hero-sms.com/api/v1` + path (e.g. `/activations`)
-- SMS-Activate compatible: `https://hero-sms.com/stubs/handler_api.php` + `?action=...`
+```bash
+# setStatus 6 = complete activation (OpenAPI)
+herosms call setStatus --auth query --query id=<activationId> --query status=6 --yes
+# or REST: herosms call finishActivation --path activationId=<id> --yes
+```
 
-The CLI picks the server from each operation’s OpenAPI `servers` block.
+Preview polling without a key:
 
-## Webhooks
+```bash
+herosms wait-otp 12345 --dry-run
+```
 
-HeroSMS pushes events to **your** servers. Outbound `herosms call` does **not** invoke webhooks. The OpenAPI defines one inbound webhook today: **Incoming SMS** (`operationId`: `smsIncoming`, path key `webhooks.sms-incoming`).
+### Manual loop (same behavior)
 
-### Register URLs (platform / account UI)
+```bash
+while true; do
+  herosms call getStatusV2 --auth query --query id=<activationId>
+  sleep 5
+done
+```
 
-- Configure up to **3 simultaneous HTTPS webhook URLs** in HeroSMS **account personal information** (OpenAPI `tags.Webhooks` description).
-- There is **no client API** in `docs/openapi.json` to register or rotate URLs — coverage marks this as **platform config** (`webhook-url-registration` in `docs/API_COVERAGE.md`).
-- Each incoming SMS triggers an independent POST to every configured URL.
+Parse for `data.code` or `STATUS_OK:…`. Use the same timeout / cancel / finish rules as above.
 
-### Delivery semantics (from OpenAPI)
+### REST OTP list (optional)
 
-| Item | Value |
+```bash
+herosms call getActivationOtpList --path activationId=<id>
+herosms call getActivationOtpLast --path activationId=<id>
+```
+
+## Webhooks (optional enhancement only)
+
+HeroSMS can **push** incoming SMS JSON to up to **3 HTTPS URLs** configured in **account personal information**. There is **no API** to register URLs.
+
+- **Grok Bot / typical cloud agents do not expose a fillable inbound webhook URL.** Do not depend on webhooks in those environments.
+- **Optional forward path:** If the operator runs `herosms-webhook` (or nginx) on the public internet, they may forward payloads to another HTTPS URL (including a bot endpoint they configured separately). That is operator infrastructure, not this skill.
+
+### If you host a receiver (operator-owned HTTPS)
+
+| Topic | OpenAPI / docs |
 | --- | --- |
-| Method | `POST` |
-| Content-Type | `application/json` |
-| Response timeout | **3 seconds** |
-| Success | HTTP **200** |
-| On non-200 / timeout | Unsuccessful; **≥7 retries**, **20–30s** between attempts, **≥3 minutes** total retry window |
-| Recommendation | Return **200** even if the SMS was already processed (idempotent handling) |
+| Event | `smsIncoming` (`webhooks.sms-incoming`) |
+| Method | `POST`, `Content-Type: application/json` |
+| Response | **HTTP 200** within **3s** |
+| Retries | **≥7**, **20–30s** apart, **≥3 min** total if not 200 |
+| Source IPs | `84.32.223.53`, `185.138.88.87` |
+| Auth | **None** in OpenAPI (no HMAC). Use HTTPS + IP allowlist; optional local secret in sample only |
 
-### Source IP allowlist (OpenAPI)
+Payload fields: `activationId`, `id`, `phoneFrom`, `service`, `text`, `code`, `country`, `receivedAt` — see previous OpenAPI table in `docs/API_COVERAGE.md`.
 
-Documented sender IPs (whitelist at your firewall or `--enforce-ips` in the sample receiver):
-
-- `84.32.223.53`
-- `185.138.88.87`
-
-### Authentication / verification (OpenAPI)
-
-The `smsIncoming` webhook definition includes **no** signature, HMAC, or API-key header. Treat payloads as trusted only after **network controls** (HTTPS, IP allowlist, private ingress) and application validation.
-
-**Optional local practice (not official):** the sample `herosms-webhook` binary can require a shared secret in header `X-HeroSMS-Webhook-Secret` via `HEROSMS_WEBHOOK_SECRET` — you must configure the same header at your reverse proxy or ignore this feature.
-
-### Payload: `smsIncoming` (Incoming SMS)
-
-Required JSON fields per `webhooks.sms-incoming.post.requestBody`:
-
-| Field | OpenAPI type | Description | Example |
-| --- | --- | --- | --- |
-| `activationId` | integer (`ActivationId`) | Activation ID | `123456` |
-| `id` | required in schema list; use integer message id | SMS / event id | `3416693217` |
-| `phoneFrom` | string | OTP source / sender | `"89854"` or `"Telegram"` |
-| `service` | string (`ServiceId`, 2–4 letters) | Service code | `"tg"` |
-| `text` | string or null (`SMSText`) | Full SMS body | `"Your code is 12345"` |
-| `code` | string or null (`SMSCode`, optional property) | Parsed OTP when present | `"12345"` |
-| `country` | integer (`CountryId`, 0–999) | Country id | `2` |
-| `receivedAt` | string date-time (`dateISO8601`) | Arrival time | `"2025-12-16T10:30:00.000000Z"` |
-
-Example body (aligned with OpenAPI component examples):
-
-```json
-{
-  "activationId": 123456,
-  "id": 3416693217,
-  "phoneFrom": "Telegram",
-  "service": "tg",
-  "text": "Telegram code 123456",
-  "code": "123456",
-  "country": 6,
-  "receivedAt": "2026-02-16T12:36:59+03:00"
-}
-```
-
-Library helpers: `herosms::webhook::parse_sms_incoming`, `extract_otp` (prefers `code`, else heuristics on `text`).
-
-### Runnable receiver (`herosms-webhook`)
+Sample (local HTTP; **you** add TLS and a public URL):
 
 ```bash
-cargo build -p herosms-webhook --release
-# HTTP on localhost — put Caddy/nginx in front for public HTTPS
-HEROSMS_WEBHOOK_LISTEN=127.0.0.1:8787 \
-  ./target/release/herosms-webhook
+cargo run -p herosms-webhook --release
 ```
 
-Defaults: path `/webhook/sms-incoming`, returns **200** + JSON ack with `otp` when parsed. Use `HEROSMS_WEBHOOK_ENFORCE_IPS=1` to enforce the OpenAPI IP list. Use `HEROSMS_WEBHOOK_SIMULATE_BUSY=1` once to test retry behavior (503).
-
-See `docs/API_COVERAGE.md` for platform vs skill-side checklist rows.
+**Not a product dependency:** receiving via webhook in the bot environment is **N/A** — use polling.
 
 ## Coverage and tests
 
-- Checklist: `docs/API_COVERAGE.md` (51 OpenAPI operations + webhook platform/receiver rows).
-- Offline: `cargo test` (no network; live test no-ops without `HEROSMS_API_KEY`).
-- Live smoke (optional): `HEROSMS_API_KEY=... cargo test --test live_smoke` — balance + list activations only; **no purchases**.
+- `docs/API_COVERAGE.md` — outbound CLI + webhook platform vs receive notes
+- `cargo test --workspace` — offline; live API only if `HEROSMS_API_KEY` set
 
 ## Known gaps
 
-- Outbound API surface is fully defined by the bundled OpenAPI; there are no extra undocumented REST methods in this skill.
-- Webhook registration URLs are configured in the HeroSMS web UI, not via an API operation in the spec.
+- Webhook URL registration is UI-only.
+- No official webhook signing in OpenAPI.
