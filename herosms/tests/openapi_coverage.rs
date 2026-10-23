@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 fn spec_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/openapi.json")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("docs")
+        .join("openapi.json")
 }
 
 fn openapi_operation_ids(spec: &serde_json::Value) -> HashSet<String> {
@@ -46,8 +49,17 @@ fn write_classification() {
 #[test]
 fn dry_run_does_not_require_api_key() {
     let bin = env!("CARGO_BIN_EXE_herosms");
+    let spec = spec_path();
     let out = std::process::Command::new(bin)
-        .args(["call", "getBalance", "--auth", "query", "--dry-run"])
+        .args([
+            "--spec",
+            spec.to_str().expect("spec path"),
+            "call",
+            "getBalance",
+            "--auth",
+            "query",
+            "--dry-run",
+        ])
         .env_remove("HEROSMS_API_KEY")
         .output()
         .expect("run herosms");

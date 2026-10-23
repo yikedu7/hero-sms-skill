@@ -29,8 +29,10 @@ Do **not** use this skill to invent endpoints; only operations in `docs/openapi.
 3. Build the CLI (Rust stable):
 
 ```bash
-cargo build --release
+cargo build -p herosms --release
 # binary: target/release/herosms
+cargo build -p herosms-webhook --release
+# binary: target/release/herosms-webhook
 ```
 
 Optional: add `target/release` to `PATH`, or call via `cargo run --release -- <subcommand>`.
@@ -105,13 +107,88 @@ herosms call getHistory --auth query --query from=2025-01-01 --query to=2025-12-
 
 The CLI picks the server from each operation’s OpenAPI `servers` block.
 
-## Webhooks (inbound only)
+## Webhooks
 
-Operation `smsIncoming` is **not** called by this CLI. HeroSMS POSTs JSON to up to three HTTPS URLs configured in the account profile. Respond with HTTP 200 within 3 seconds. Whitelist source IPs documented in OpenAPI (`84.32.223.53`, `185.138.88.87`). See `docs/API_COVERAGE.md`.
+HeroSMS pushes events to **your** servers. Outbound `herosms call` does **not** invoke webhooks. The OpenAPI defines one inbound webhook today: **Incoming SMS** (`operationId`: `smsIncoming`, path key `webhooks.sms-incoming`).
+
+### Register URLs (platform / account UI)
+
+- Configure up to **3 simultaneous HTTPS webhook URLs** in HeroSMS **account personal information** (OpenAPI `tags.Webhooks` description).
+- There is **no client API** in `docs/openapi.json` to register or rotate URLs — coverage marks this as **platform config** (`webhook-url-registration` in `docs/API_COVERAGE.md`).
+- Each incoming SMS triggers an independent POST to every configured URL.
+
+### Delivery semantics (from OpenAPI)
+
+| Item | Value |
+| --- | --- |
+| Method | `POST` |
+| Content-Type | `application/json` |
+| Response timeout | **3 seconds** |
+| Success | HTTP **200** |
+| On non-200 / timeout | Unsuccessful; **≥7 retries**, **20–30s** between attempts, **≥3 minutes** total retry window |
+| Recommendation | Return **200** even if the SMS was already processed (idempotent handling) |
+
+### Source IP allowlist (OpenAPI)
+
+Documented sender IPs (whitelist at your firewall or `--enforce-ips` in the sample receiver):
+
+- `84.32.223.53`
+- `185.138.88.87`
+
+### Authentication / verification (OpenAPI)
+
+The `smsIncoming` webhook definition includes **no** signature, HMAC, or API-key header. Treat payloads as trusted only after **network controls** (HTTPS, IP allowlist, private ingress) and application validation.
+
+**Optional local practice (not official):** the sample `herosms-webhook` binary can require a shared secret in header `X-HeroSMS-Webhook-Secret` via `HEROSMS_WEBHOOK_SECRET` — you must configure the same header at your reverse proxy or ignore this feature.
+
+### Payload: `smsIncoming` (Incoming SMS)
+
+Required JSON fields per `webhooks.sms-incoming.post.requestBody`:
+
+| Field | OpenAPI type | Description | Example |
+| --- | --- | --- | --- |
+| `activationId` | integer (`ActivationId`) | Activation ID | `123456` |
+| `id` | required in schema list; use integer message id | SMS / event id | `3416693217` |
+| `phoneFrom` | string | OTP source / sender | `"89854"` or `"Telegram"` |
+| `service` | string (`ServiceId`, 2–4 letters) | Service code | `"tg"` |
+| `text` | string or null (`SMSText`) | Full SMS body | `"Your code is 12345"` |
+| `code` | string or null (`SMSCode`, optional property) | Parsed OTP when present | `"12345"` |
+| `country` | integer (`CountryId`, 0–999) | Country id | `2` |
+| `receivedAt` | string date-time (`dateISO8601`) | Arrival time | `"2025-12-16T10:30:00.000000Z"` |
+
+Example body (aligned with OpenAPI component examples):
+
+```json
+{
+  "activationId": 123456,
+  "id": 3416693217,
+  "phoneFrom": "Telegram",
+  "service": "tg",
+  "text": "Telegram code 123456",
+  "code": "123456",
+  "country": 6,
+  "receivedAt": "2026-02-16T12:36:59+03:00"
+}
+```
+
+Library helpers: `herosms::webhook::parse_sms_incoming`, `extract_otp` (prefers `code`, else heuristics on `text`).
+
+### Runnable receiver (`herosms-webhook`)
+
+```bash
+cargo build -p herosms-webhook --release
+# HTTP on localhost — put Caddy/nginx in front for public HTTPS
+HEROSMS_WEBHOOK_LISTEN=127.0.0.1:8787 \
+  ./target/release/herosms-webhook
+```
+
+Defaults: path `/webhook/sms-incoming`, returns **200** + JSON ack with `otp` when parsed. Use `HEROSMS_WEBHOOK_ENFORCE_IPS=1` to enforce the OpenAPI IP list. Use `HEROSMS_WEBHOOK_SIMULATE_BUSY=1` once to test retry behavior (503).
+
+See `docs/API_COVERAGE.md` for platform vs skill-side checklist rows.
 
 ## Coverage and tests
 
-- Checklist: `docs/API_COVERAGE.md` (51 operations).
+- Checklist: `docs/API_COVERAGE.md` (51 OpenAPI operations + webhook platform/receiver rows).
 - Offline: `cargo test` (no network; live test no-ops without `HEROSMS_API_KEY`).
 - Live smoke (optional): `HEROSMS_API_KEY=... cargo test --test live_smoke` — balance + list activations only; **no purchases**.
 

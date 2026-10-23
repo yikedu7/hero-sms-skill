@@ -11,11 +11,12 @@ Reusable **HeroSMS official API** skill for Grok Bot and Cursor agents, with ful
 Requires **Rust stable** (see `rust-toolchain.toml`).
 
 ```bash
-cargo build --release
+cargo build -p herosms --release
+cargo build -p herosms-webhook --release
 ```
 
-Binary: `target/release/herosms`  
-Install locally: `cargo install --path .` (installs `herosms` into `~/.cargo/bin`).
+Binaries: `target/release/herosms`, `target/release/herosms-webhook`  
+Install CLI: `cargo install -p herosms --path herosms`
 
 Run without installing:
 
@@ -77,10 +78,21 @@ Regenerate after OpenAPI updates:
 python scripts/generate_api_coverage.py
 ```
 
+## Webhook receiver (incoming SMS)
+
+HeroSMS POSTs `smsIncoming` JSON to up to **3 HTTPS URLs** configured in the account UI (no API to register them). Run the sample server locally and terminate TLS with nginx/Caddy in production:
+
+```bash
+cargo run -p herosms-webhook --release
+# POST http://127.0.0.1:8787/webhook/sms-incoming
+```
+
+Details: `skill/SKILL.md` (Webhooks section) and `docs/API_COVERAGE.md`.
+
 ## Tests
 
 ```bash
-cargo test
+cargo test --workspace
 ```
 
 Offline tests always run. The `live_smoke` integration test calls the real API only when `HEROSMS_API_KEY` is set (balance + activations list; **no purchases**).

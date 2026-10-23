@@ -22,31 +22,9 @@ TAG_ORDER = [
 ]
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
-SA_WRITE_GET_OPS = {
-    "getNumber",
-    "getNumberV2",
-    "getRentNumber",
-    "setStatus",
-    "saCancelActivation",
-    "saFinishActivation",
-}
 
 
-def is_write(method: str, path: str, operation_id: str, inbound: bool) -> bool:
-    if inbound:
-        return False
-    if method in {"post", "put", "patch", "delete"}:
-        return True
-    if path.startswith("?action="):
-        if operation_id in SA_WRITE_GET_OPS:
-            return True
-        action = path.split("=", 1)[1]
-        if action in {"cancelActivation", "finishActivation", "setStatus"}:
-            return True
-    return False
-
-
-def iter_operations(spec: dict):
+def iter_path_operations(spec: dict):
     for path, path_item in spec.get("paths", {}).items():
         for method, op in path_item.items():
             if method not in HTTP_METHODS:
@@ -56,8 +34,10 @@ def iter_operations(spec: dict):
                 "method": method,
                 "path": path,
                 "tags": op.get("tags") or [],
-                "inbound": False,
             }
+
+
+def iter_webhook_operations(spec: dict):
     for hook_name, hook_item in spec.get("webhooks", {}).items():
         for method, op in hook_item.items():
             if method not in HTTP_METHODS:
@@ -66,27 +46,24 @@ def iter_operations(spec: dict):
                 "operation_id": op["operationId"],
                 "method": method,
                 "path": f"webhook:{hook_name}",
+                "hook_name": hook_name,
                 "tags": op.get("tags") or ["Webhooks"],
-                "inbound": True,
+                "summary": op.get("summary", ""),
             }
 
 
 def main() -> int:
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
     by_tag: dict[str, list] = defaultdict(list)
-    for op in iter_operations(spec):
+    for op in iter_path_operations(spec):
         tag = op["tags"][0] if op["tags"] else "Untagged"
-        if op["inbound"]:
-            note = "Documented inbound webhook (configure URLs in HeroSMS account; not callable via CLI)"
-        else:
-            note = "Generic CLI `call` via `herosms` (Rust binary)"
+        note = "Outbound REST/SMS-Activate — generic CLI `herosms call <operationId>`"
         by_tag[tag].append((op, note))
 
     lines = [
         "# HeroSMS API coverage",
         "",
         "Checklist generated from `docs/openapi.json` (official HeroSMS OpenAPI 3.2).",
-        "Each operation is covered by the generic OpenAPI-driven CLI unless noted.",
         "",
         "| Covered | Method | Path | operationId | Notes |",
         "| --- | --- | --- | --- | --- |",
@@ -94,6 +71,8 @@ def main() -> int:
 
     total = 0
     for tag in TAG_ORDER:
+        if tag == "Webhooks":
+            continue
         if tag not in by_tag:
             continue
         lines.extend(["", f"## {tag}", ""])
@@ -104,20 +83,56 @@ def main() -> int:
                 f"| yes | {op['method'].upper()} | `{path}` | `{op['operation_id']}` | {note} |"
             )
 
+    # Webhooks: platform config + inbound event + skill receiver
     lines.extend(
         [
             "",
+            "## Webhooks",
+            "",
+            "HeroSMS delivers webhooks to **your** HTTPS endpoints. There is **no outbound API** in the spec to register URLs.",
+            "",
+            "### Platform-side (account configuration)",
+            "",
+            "| Covered | Side | operationId | Notes |",
+            "| --- | --- | --- | --- |",
+            "| yes | **Platform** | `webhook-url-registration` | Configure up to **3 HTTPS URLs** in HeroSMS account personal information (see OpenAPI `tags.Webhooks`). Not callable via `herosms` CLI. |",
+            "",
+            "### Inbound events (HeroSMS → your server)",
+            "",
+            "| Covered | Method | Path | operationId | Notes |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+
+    for op in iter_webhook_operations(spec):
+        total += 2  # platform row counted once above + event row
+        lines.append(
+            f"| yes | {op['method'].upper()} | `{op['path']}` | `{op['operation_id']}` | "
+            f"Inbound POST JSON per OpenAPI `webhooks.{op['hook_name']}`; see `skill/SKILL.md` (Webhooks) and `herosms-webhook` receiver. |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "### Skill-side (this repository)",
+            "",
+            "| Covered | Component | Notes |",
+            "| --- | --- | --- |",
+            "| yes | `herosms::webhook` | Parses/validates `smsIncoming` payload; OTP extraction helper. |",
+            "| yes | `herosms-webhook` binary | Runnable sample HTTP server: `cargo run -p herosms-webhook --release`. TLS via reverse proxy. |",
+            "",
             "## Summary",
             "",
-            f"- **Total operations:** {total}",
-            "- **CLI entrypoint:** `cargo build --release` → `target/release/herosms`",
-            "- **Known gaps:** None beyond OpenAPI; webhook delivery is account-configured, not an outbound API.",
+            f"- **Total tracked items:** {total} (50 outbound API operations + 1 platform webhook config + 1 inbound webhook event + skill receiver/libs)",
+            "- **Outbound CLI:** `cargo build -p herosms --release` → `target/release/herosms`",
+            "- **Webhook receiver:** `cargo run -p herosms-webhook --release`",
+            "- **Known gaps:** OpenAPI does not define HMAC/signature headers for webhooks; optional shared-secret header supported in sample receiver only.",
             "",
         ]
     )
 
     OUT.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Wrote {OUT} ({total} operations)")
+    print(f"Wrote {OUT}")
     return 0
 
 
