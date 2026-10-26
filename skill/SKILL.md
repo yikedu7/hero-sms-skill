@@ -18,8 +18,8 @@ OpenAPI source of truth: `docs/openapi.json`
 | Concern | Default | Notes |
 | --- | --- | --- |
 | **Outbound API** | `herosms` Rust CLI | All **50** client operations via `call` / `wait-otp`. Needs `HEROSMS_API_KEY`. |
-| **Receive OTP / SMS** | **Polling** | Works in Grok Bot, Cursor Cloud Agent, CI, local — no public URL required. |
-| **Webhooks** | **Optional** | HeroSMS pushes to **your** HTTPS URLs. Not provided by Grok Bot. Use only if the operator runs their own endpoint (or optional forward to a bot URL they control). |
+| **Receive OTP / SMS** | **Polling** | Works in CI, local, cloud agents, and hosts without a public URL. |
+| **Webhooks** | **Optional** | HeroSMS pushes to **your** HTTPS URLs. Most agent hosts do not expose one. Use only if you run your own public endpoint. |
 
 **Environment rule:** If there is no public HTTPS receiver, **use polling only**. Do not fail or block tasks because webhooks are unavailable.
 
@@ -125,7 +125,7 @@ herosms call getActivationOtpLast --path activationId=<id>
 
 HeroSMS can **push** incoming SMS JSON to up to **3 HTTPS URLs** configured in **account personal information**. There is **no API** to register URLs.
 
-- **Grok Bot / typical cloud agents do not expose a fillable inbound webhook URL.** Do not depend on webhooks in those environments.
+- **Typical agent hosts do not expose a fillable inbound webhook URL.** Do not depend on webhooks unless you host one.
 - **Optional forward path:** If the operator runs `herosms-webhook` (or nginx) on the public internet, they may forward payloads to another HTTPS URL (including a bot endpoint they configured separately). That is operator infrastructure, not this skill.
 
 ### If you host a receiver (operator-owned HTTPS)
@@ -147,7 +147,7 @@ Sample (local HTTP; **you** add TLS and a public URL):
 cargo run -p herosms-webhook --release
 ```
 
-**Not a product dependency:** receiving via webhook in the bot environment is **N/A** — use polling.
+**Not a product dependency:** if you cannot host public HTTPS, receive is **N/A** via webhook — use polling.
 
 ## Coverage and tests
 

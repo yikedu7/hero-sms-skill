@@ -1,6 +1,6 @@
 # hero-sms-skill
 
-Reusable **HeroSMS official API** skill for Grok Bot and Cursor agents: **Rust CLI** for all outbound OpenAPI operations; **polling** (`wait-otp`) as the default way to receive OTP. Webhooks are optional and require your own public HTTPS endpoint.
+Reusable **HeroSMS official API** skill for any coding agent (Cursor, Claude Code, Codex, OpenClaw, Grok Bot, and similar): **Rust CLI** for all outbound OpenAPI operations; **polling** (`wait-otp`) as the default way to receive OTP. Webhooks are optional and require your own public HTTPS endpoint.
 
 - Docs: https://hero-sms.com/api  
 - OpenAPI: `docs/openapi.json` (mirror of https://hero-sms.com/docs/v1/openapi.json)  
