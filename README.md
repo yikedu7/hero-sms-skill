@@ -8,21 +8,39 @@ Reusable **HeroSMS official API** skill for any coding agent (Cursor, Claude Cod
 
 ## Build & install
 
-Requires **Rust stable** (see `rust-toolchain.toml`).
+**Recommended (any coding agent / host):** download a prebuilt `herosms` binary from [GitHub Releases](https://github.com/yikedu7/hero-sms-skill/releases). Assets are published for:
+
+| Platform | Asset suffix |
+| --- | --- |
+| Linux x86_64 | `x86_64-unknown-linux-musl` (static) |
+| Linux arm64 | `aarch64-unknown-linux-gnu` |
+| macOS Apple Silicon | `aarch64-apple-darwin` |
+| macOS Intel | `x86_64-apple-darwin` |
+
+One-liner (installs to `~/.local/bin`; add that directory to `PATH` if needed):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yikedu7/hero-sms-skill/main/scripts/install-herosms.sh | bash
+```
+
+Pin a version: `HEROSMS_VERSION=0.1.0 curl -fsSL .../install-herosms.sh | bash`
+
+Verify checksums from the release’s `SHA256SUMS` file after download.
+
+**Fallback — build from source** (requires **Rust stable**, see `rust-toolchain.toml`):
 
 ```bash
 cargo build -p herosms --release
+# binary: target/release/herosms
+cargo install -p herosms --path herosms
 ```
-
-Binary: `target/release/herosms`  
-Install CLI: `cargo install -p herosms --path herosms`
 
 Optional webhook sample (operator-hosted HTTPS only): `cargo build -p herosms-webhook --release`
 
-Run without installing:
+Run without installing (source tree):
 
 ```bash
-cargo run --release -- list
+cargo run -p herosms --release -- list
 ```
 
 ## API key
@@ -113,6 +131,15 @@ skill/SKILL.md             # agent instructions
 src/                       # Rust CLI (herosms)
 tests/                     # cargo integration tests
 ```
+
+## Releases (maintainers)
+
+CI workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) builds platform binaries on every PR (dry build). After merge:
+
+1. **Tag release:** `git tag v0.1.0 && git push origin v0.1.0` (version should match `herosms/Cargo.toml`), or  
+2. **Manual:** Actions → **Release** → **Run workflow** (optional `version` input; defaults to `herosms/Cargo.toml`).
+
+Published assets: `herosms-<version>-<target-triple>` plus `SHA256SUMS`.
 
 ## Known gaps
 
