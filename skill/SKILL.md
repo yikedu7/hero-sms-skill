@@ -25,6 +25,16 @@ OpenAPI source of truth: `docs/openapi.json`
 
 ## Install
 
+**Primary (no Rust required):** use the latest [GitHub Release](https://github.com/yikedu7/hero-sms-skill/releases) binary for your OS/arch, or run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yikedu7/hero-sms-skill/main/scripts/install-herosms.sh | bash
+```
+
+Asset names look like `herosms-<version>-x86_64-unknown-linux-musl` (Linux x86_64), `herosms-<version>-aarch64-unknown-linux-gnu`, `herosms-<version>-aarch64-apple-darwin`, `herosms-<version>-x86_64-apple-darwin`. Check `SHA256SUMS` on the release page.
+
+**Fallback:** build from this repo with Rust stable:
+
 ```bash
 cargo build -p herosms --release
 # target/release/herosms
